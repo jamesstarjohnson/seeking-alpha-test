@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from "react";
-import { range, pipe } from "ramda";
+import { range, pipe, curry } from "ramda";
 import { random } from "lodash";
 import styled from "styled-components";
 import { interval } from "rxjs";
 
-type Item = "live" | "dead";
+export type Item = "live" | "dead";
 type Coord = { x: number; y: number };
 
 const Container = styled.div`
@@ -13,12 +13,12 @@ const Container = styled.div`
   justify-content: center;
 `;
 
-const Board = styled.div<{ size: number; gridGap: number }>`
+const Board = styled.div<{ size: number }>`
   display: grid;
-  grid-template-columns: ${({ size }) => `repeat(${size}, ${100 / size}%)`};
-  grid-auto-rows: ${({ size }) => `${100 / size}%`};
-  grid-gap: ${({ gridGap }) => `${gridGap}px`};
-  height: ${({ size, gridGap }) => `calc(100vmin - ${(size - 1) * gridGap}px)`};
+  grid-template-columns: ${({ size }) => `repeat(${size}, auto)`};
+  grid-auto-rows: auto;
+  grid-gap: 1px;
+  height: 100vmin;
   width: 100vmin;
 `;
 
@@ -47,52 +47,61 @@ const randomCoords = new Set(
     .map(([y, x]) => getKey({ x, y }))
 );
 
-const initBoard = range(0, size).map((_, y) =>
-  range(0, size).map<Item>((_, x) =>
-    randomCoords.has(getKey({ x, y })) ? "live" : "dead"
+export const initBoard = curry((size: number, filler: Item | "random") =>
+  range(0, size).map((_, y) =>
+    range(0, size).map<Item>((_, x) => {
+      switch (filler) {
+        case "random":
+          return randomCoords.has(getKey({ x, y })) ? "live" : "dead";
+        default:
+          return filler;
+      }
+    })
   )
 );
 
-const makeLifeOrDeathDecision = (currentItem: Item) => (
-  liveNeighborsNumber: number
-) => {
-  switch (currentItem) {
-    case "live":
-      if (liveNeighborsNumber < 2) {
-        return "dead";
-      }
-      if (liveNeighborsNumber === 2 || liveNeighborsNumber === 3) {
-        return "live";
-      }
-      if (liveNeighborsNumber > 3) {
-        return "dead";
-      }
-      return currentItem;
-    case "dead":
-      if (liveNeighborsNumber === 3) {
-        return "live";
-      }
-      return currentItem;
+export const makeLifeOrDeathDecision = curry(
+  (currentItem: Item, liveNeighborsNumber: number) => {
+    switch (currentItem) {
+      case "live":
+        if (liveNeighborsNumber < 2) {
+          return "dead";
+        }
+        if (liveNeighborsNumber === 2 || liveNeighborsNumber === 3) {
+          return "live";
+        }
+        if (liveNeighborsNumber > 3) {
+          return "dead";
+        }
+        return currentItem;
+      case "dead":
+        if (liveNeighborsNumber === 3) {
+          return "live";
+        }
+        return currentItem;
+    }
   }
-};
+);
 
-const calculateLiveNeighbors = (board: Item[][]) => (coord: Coord) =>
-  [
-    { y: coord.y - 1, x: coord.x - 1 },
-    { y: coord.y - 1, x: coord.x },
-    { y: coord.y - 1, x: coord.x + 1 },
+export const calculateLiveNeighbors = curry(
+  (board: Item[][], coord: Coord) =>
+    [
+      { y: coord.y - 1, x: coord.x - 1 },
+      { y: coord.y - 1, x: coord.x },
+      { y: coord.y - 1, x: coord.x + 1 },
 
-    { y: coord.y, x: coord.x - 1 },
-    { y: coord.y, x: coord.x + 1 },
+      { y: coord.y, x: coord.x - 1 },
+      { y: coord.y, x: coord.x + 1 },
 
-    { y: coord.y + 1, x: coord.x - 1 },
-    { y: coord.y + 1, x: coord.x },
-    { y: coord.y + 1, x: coord.x + 1 }
-  ]
-    .map(getItem(board))
-    .filter(x => x === "live").length;
+      { y: coord.y + 1, x: coord.x - 1 },
+      { y: coord.y + 1, x: coord.x },
+      { y: coord.y + 1, x: coord.x + 1 }
+    ]
+      .map(getItem(board))
+      .filter(x => x === "live").length
+);
 
-const tick = (board: Item[][]) =>
+export const tick = (board: Item[][]) =>
   board.map((row, y) =>
     row.map((column, x) =>
       pipe(
@@ -105,7 +114,7 @@ const tick = (board: Item[][]) =>
 const source = interval(1000);
 
 const App: React.FC = () => {
-  const [cells, setCells] = useState<Item[][]>(initBoard);
+  const [cells, setCells] = useState<Item[][]>(initBoard(size, "random"));
   useEffect(() => {
     const subscription = source.subscribe(() => setCells(tick(cells)));
     return () => {
@@ -114,7 +123,7 @@ const App: React.FC = () => {
   }, [cells]);
   return (
     <Container>
-      <Board size={size} gridGap={1}>
+      <Board size={size}>
         {cells.map((row, y) =>
           row.map((column, x) => <Cell key={`${y},${x}`} kind={column} />)
         )}
