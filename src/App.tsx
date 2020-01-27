@@ -76,8 +76,8 @@ const makeLifeOrDeathDecision = (currentItem: Item) => (
   }
 };
 
-const calculateLiveNeighbors = (board: Item[][]) => (coord: Coord) => {
-  const a = [
+const calculateLiveNeighbors = (board: Item[][]) => (coord: Coord) =>
+  [
     { y: coord.y - 1, x: coord.x - 1 },
     { y: coord.y - 1, x: coord.x },
     { y: coord.y - 1, x: coord.x + 1 },
@@ -91,9 +91,6 @@ const calculateLiveNeighbors = (board: Item[][]) => (coord: Coord) => {
   ]
     .map(getItem(board))
     .filter(x => x === "live").length;
-  console.log(a);
-  return a;
-};
 
 const tick = (board: Item[][]) =>
   board.map((row, y) =>
